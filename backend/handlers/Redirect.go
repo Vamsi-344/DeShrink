@@ -50,33 +50,13 @@ func Redirect(c *gin.Context) {
 	//retrieve
 	// dynamic
 	// fmt.Println(ReqBody.After)
-	retrieveDynStmt := `select * from urls where after = $1`
-	rows := db.QueryRow(retrieveDynStmt, afterurl)
-	// CheckError(e)
-	// rows, err := db.Query(`SELECT "Name", "Roll_Number" FROM "Students"`)
-	// CheckError(err)
-	// fmt.Println(rows)
-	// defer rows.Close()
 	var before string
 	var after string
-	err = rows.Scan(&before, &after)
+	retrieveDynStmt := `select * from urls where after = $1`
+	err = db.QueryRow(retrieveDynStmt, afterurl).Scan(&before, &after)
 	CheckError(err)
 
 	fmt.Println(before, after)
-
-	// defer rows.Close()
-	// for rows.Next() {
-	// 	fmt.Println(rows)
-	// 	var before string
-	// 	var after string
-	// 	// var name string
-	// 	// var roll_number int
-
-	// 	err = rows.Scan(&before, &after)
-	// 	CheckError(err)
-
-	// 	fmt.Println(before, after)
-	// }
 
 	c.Redirect(http.StatusMovedPermanently, before)
 	CheckError(err)

@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"crypto/rand"
-	"encoding/hex"
 	"fmt"
 	"log"
 	"net/http"
@@ -25,19 +24,21 @@ type ShortenReqBody struct {
 	Url string `json:"url"`
 }
 
+const charset = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
+
 // GenerateRandomString generates a random string of a given length
 func GenerateRandomString(length int) (string, error) {
-	// Create a byte slice to store the random string
-	bytes := make([]byte, length)
-
-	// Generate random bytes
-	_, err := rand.Read(bytes)
-	if err != nil {
-		return "", err
+	b := make([]byte, length)
+	for i := range b {
+		randomByte := make([]byte, 1)
+		_, err := rand.Read(randomByte)
+		if err != nil {
+			panic(err)
+		}
+		b[i] = charset[randomByte[0]%byte(len(charset))]
 	}
 
-	// Convert random bytes to a hex string and return it
-	return hex.EncodeToString(bytes)[:length], nil
+	return string(b), nil
 }
 
 func ShortURLGenerator(c *gin.Context) {
@@ -62,14 +63,34 @@ func ShortURLGenerator(c *gin.Context) {
 
 	fmt.Println("Connected!")
 
-	//insert
-	// dynamic
-	insertDynStmt := `insert into urls (before, after) values($1, $2)`
-	shortPath, err := GenerateRandomString(6)
+	var shortPath string
+	exists := true
+
+	// Retry generating shortPath until it is unique
+	for exists {
+		shortPath, err = GenerateRandomString(6)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		// Check if the generated shortPath already exists in DB
+		var count int
+		checkQuery := `SELECT COUNT(*) FROM urls WHERE after = $1`
+		err = db.QueryRow(checkQuery, shortPath).Scan(&count)
+		if err != nil {
+			log.Fatal(err) // Handle DB error properly
+		}
+
+		exists = (count > 0) // If count > 0, shortPath already exists, so retry
+	}
+
 	if err != nil {
 		log.Fatal(err)
 	}
 	fmt.Println("Generated short path:", shortPath)
+
+	insertDynStmt := `insert into urls (before, after) values($1, $2)`
+
 	_, e := db.Exec(insertDynStmt, ReqBody.Url, shortPath)
 	CheckError(e)
 	// fmt.Println("url")
